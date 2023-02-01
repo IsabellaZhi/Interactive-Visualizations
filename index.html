@@ -1,0 +1,671 @@
+<html><head>
+  <title>INFO 3300 Project 2: Carbon Emission</title>
+  <h3>INFO 3300 - Project 2: Carbon emission</h3>
+  <!-- <h5>Isabella Zhi, Jessica Zhou, Kayla Yang, Jasmine Wang</h5> -->
+  <meta charset = "utf-8" />
+  <link href = "styles/site.css" type = "text/css" rel = "stylesheet" />
+  <link href="https://fonts.googleapis.com/css?family=Lato:400,700|Raleway:400,700" rel="stylesheet">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css">
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/topojson.v3.min.js"></script>
+</head>
+<body>
+
+<div id = "v1andh2">
+<h2 id = "graph-title">Carbon Emission by different states from 1980-2020</h2>
+<h5 id = "graph-title">Unit: million metric tons</h5>
+<p class = "center">Hover over state for detail
+</p>
+<div id = "visualization1">
+<div id = "map">
+<svg id="choropleth" height="600" width="1000" style="margin-top:30px" ></svg>
+
+</div>
+<div id = "scatter">
+  <div class = "center"> Number of Cattles (per capita)</div>
+  <div class = "center">vs. Carbon Emission</div>
+  <div class = "center" id = "scatter1"><svg id="cattle" height="200" width="300"></svg></div>
+  <div class = "center"> Number of Automobiles (per capita)</div>
+  <div class = "center">vs. Carbon Emission</div>
+  <div class = "center" id = "scatter2"><svg id="auto" height="200" width="300" ></svg></div>
+</div>
+
+</div>
+<div id = "slider-box">
+<div>Year</div>
+<input id="slider" type="range" min="1980" max="2020" value="2020" step="10" />
+<span id="range">2020</span>
+</div>
+<div class = "center">Move the slider to inspect the data from 1980 - 2020</div>
+<script>
+    onload = function() {
+    var $ = function(id) { return document.getElementById(id); };
+    $('slider').oninput = function() { $('range').innerHTML = this.value; };
+    $('slider').oninput();
+  };
+
+  const svg = d3.select("#choropleth");
+  const width = svg.attr("width");
+  const height = svg.attr("height");
+  const margin = { top: 20, right: 20, bottom: 20, left:20};
+  const mapWidth = width - margin.left - margin.right;
+  const mapHeight = height - margin.top - margin.bottom-50;
+  const map = svg.append("g")
+                  .attr("transform","translate("+margin.left+","+margin.top+")");
+
+  const requestData = async function() {
+
+    const us = await d3.json("us-smaller.json");
+    //console.log(us);
+
+    // Pick out topographic features and build d3 helpers
+    var states = topojson.feature(us, us.objects.states);     // List of state outlines to fill
+    var statesMesh = topojson.mesh(us, us.objects.states);    // 'Mesh' of all outlines put together for a stroke
+    var projection = d3.geoAlbersUsa().fitSize([mapWidth, mapHeight], states);
+    var path = d3.geoPath().projection(projection);
+
+    // Draw states and outlines
+    let statePaths = map.selectAll("path.state").data(states.features)
+                     .join("path")
+                     .attr("class", "state")
+                     .attr("note", d => d.id)
+                     .attr("d", path)
+                     .on('mouseover',  mouseEntersState )
+                     .on('mouseout',  mouseLeavesState );
+
+    map.append("path").datum(statesMesh)
+       .attr("class","outline")
+       .attr("d", path);
+
+    // Introduce data
+    const carbonData = await d3.csv("dataset_sum.csv", d3.autoType);
+
+    // Generate the data structures we will need
+    var countsList = [];
+    var namesList = [];
+    var cattleList = [];
+    var autoList = [];
+        for (i = 198; i <= 202; i++ ){
+            var stateIdCounts = {}
+            var stateIdNames = {}
+            var cattleCounts = {}
+            var autoCounts = {}
+            carbonData.forEach( row => {
+              stateIdCounts[ row.state_code ] = Number(row[i*10+"_carbon_emission_pc"]);
+              stateIdNames[ row.state_code ] = row.state;
+              cattleCounts[row.state_code ] = Number(row[i*10+"_cattle_pc"]);
+              autoCounts[row.state_code ] = Number(row[i*10+"_auto_pc"]);
+            });
+            countsList[i*10] = stateIdCounts
+            namesList[i*10] = stateIdNames
+            cattleList[i*10] = cattleCounts
+            autoList[i*10] = autoCounts
+        }
+    console.log(cattleList);
+
+    // Make a color scale
+     const colorScale = d3.scaleThreshold()
+                       .domain([11, 22, 33, 44,126])
+                       //.domain([0, Math.pow(14), Math.pow(28), Math.pow(42), Math.pow(56), Math.pow(70), Math.pow(84), Math.pow(98), Math.pow(112), Math.pow(126)])
+                      .range(["#dae8ec","#75a3b0","#477e93","#004f58","#00343b"]);
+
+    // 3d. Recolor the states to make a choropleth map
+    map.selectAll(".state")
+       .style("fill", d => colorScale( countsList['2020'][d.id]) );
+
+    // 3e. Use the extra legend code to draw a legend
+    drawLegend("#colorLegend", colorScale);
+
+
+    // 4. Add a tooltip that "sticks" below the state
+    let tooltipWidth = 230;
+    let tooltipHeight = 85;
+
+
+    // At the end of lecture segment, I mentioned adding this code to do the mouseover outline the "proper" way
+    let momesh =  map.append("path")
+                     .attr("class","mouseover outline")
+                     .style("stroke", "black")
+                     .style("stroke-width", 3)
+                     .attr("d", "");
+
+    // Draw the tooltip
+    let tooltip = map.append("g")
+                     .attr("class","tooltip")
+                     .attr("visibility","hidden");
+    tooltip.append("rect")
+           .attr("fill", "black")
+           .attr("opacity", 0.9)
+           .attr("x", -tooltipWidth / 2.0)
+           .attr("y", 0)
+           .attr("width",tooltipWidth)
+           .attr("height",tooltipHeight)
+    let txt = tooltip.append("text")
+                     .attr("fill", "white")
+                     .attr("text-anchor","middle")
+                     .attr("class", "stateNameTxt")
+                     .attr("alignment-baseline","hanging")
+                     .attr("x", 0)
+                     .attr("y", 2);
+    let txt2 = tooltip.append("text")
+                     .attr("class", "featuresTxt")
+                     .attr("fill", "white")
+                     .attr("text-anchor","middle")
+                     .attr("alignment-baseline","hanging")
+                     .attr("x", 0)
+                     .attr("y", 22);
+    let txt3 = tooltip.append("text")
+                      .attr("class", "featuresTxt")
+                      .attr("fill", "white")
+                      .attr("text-anchor","middle")
+                      .attr("alignment-baseline","hanging")
+                      .attr("x", 0)
+                      .attr("y", 42);
+  let txt4 = tooltip.append("text")
+                    .attr("class", "featuresTxt")
+                    .attr("fill", "white")
+                    .attr("text-anchor","middle")
+                    .attr("alignment-baseline","hanging")
+                    .attr("x", 0)
+                    .attr("y", 62);
+
+    // Apply mouseover
+    function mouseEntersState() {
+      // Make tooltip visible
+     tooltip.style("visibility","visible")
+
+      // Find the state SVG element and add stroke
+      let state = d3.select(this);
+
+      // Using .datum() to recover the data for the state element
+      let stateID = state.datum().id;
+      var currentYr = document.getElementById("range").textContent;
+      txt.text(stateIdNames[ stateID ]);
+      txt2.text("Carbon Emission PC: " + countsList[currentYr][ stateID ]);
+      txt3.text("Cattle PC: " + (cattleList[currentYr][ stateID ]).toFixed(2));
+      txt4.text("Automobile PC: " + (autoList[currentYr][ stateID ]).toFixed(2));
+
+      let bounds = path.bounds( state.datum() );
+      let xPos = (bounds[0][0]+bounds[1][0])/2.0;
+      let yPos = bounds[1][1] - 15;
+      tooltip.attr("transform",`translate(${xPos},${yPos})`);
+
+      // Make mesh when mouseover
+       var mo = topojson.mesh(us, us.objects.states, function(a, b) { return a.id === stateID || b.id === stateID; });
+       momesh.datum(mo).attr("d", path)
+}
+
+    function mouseLeavesState() {
+     tooltip.style("visibility","hidden");
+     let state = d3.select(this);
+     momesh.attr("d", "");
+    }
+
+
+  // Flexible legend-drawing function - Jeff Rzeszotarski, 2022
+  function drawLegend(legendSelector, legendColorScale) {
+
+    const legend = d3.select(legendSelector);
+    // vertical legend
+    var keys = [11, 22, 33, 44, 126]
+    const leScale = d3.scaleThreshold()
+                      .domain(keys)
+                      .range(["#caecf6","#83b7c6","#5d9ea5","#3c656a","#00343b"]);
+    var size = 20
+    svg.selectAll("legend")
+           .data(keys)
+           .enter()
+           .append("rect")
+           .attr("x", 900)
+           .attr("y", function(d,i){ return 392 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+           .attr("width", size)
+           .attr("height", size)
+           .style("fill", function(d){ return leScale(d)})
+
+    // Add one dot in the legend for each name.
+    const legendArr = ["0~11", "11~22", "22~33", "33~44", "44~126"]
+     svg.selectAll("labels")
+        .data(keys)
+        .enter()
+        .append("text")
+        .attr("x", 900+size*1.2)
+        .attr("y", function(d,i){ return 400 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
+        .style("fill", function(d){ return leScale(d)})
+        .text(function(d,i){ return legendArr[i]})
+  }
+
+    // Three scatter plot for cattles
+    const scatterC = d3.selectAll("#cattle");
+    const scatterA = d3.selectAll("#auto");
+    const widthC = scatterC.attr("width");
+    const heightC = scatterC.attr("height");
+    const chartWidth = widthC - margin.left - margin.right;
+    const chartHeight = heightC - margin.top - margin.bottom -50;
+    let axesC = scatterC.append("g").attr("id","axesC");
+    let axesA = scatterA.append("g").attr("id","axesA");
+    let chartArea = scatterC.append("g").attr("id","dots")
+                  .attr("transform",`translate(${margin.left},${margin.top})`);
+
+    const cattleScale = d3.scaleLinear().domain([0, 6]).range([0, chartWidth]); //Math.min.apply(Math, cattleDataList), Math.max.apply(Math, cattleDataList)
+    const autoScale = d3.scaleLinear().domain([0.2, 0.65]).range([0, chartWidth]);
+    const carbonScale = d3.scaleLinear().domain([3.5, 130]).range([chartHeight, 0]); //[Math.min.apply(Math, carbonDataList), Math.max.apply(Math, carbonDataList)]
+
+    // Cattle scatter plot
+    let leftAxisC = d3.axisLeft(carbonScale)
+    let bottomAxisC = d3.axisBottom(cattleScale)
+    axesC.append("g")
+    .attr("class", "yAxis")
+    .attr("transform",`translate(${margin.left+10},${margin.top-15})`)
+    .call(leftAxisC);
+    axesC.append('g')
+      .attr('class', 'xAxis')
+      .attr('transform',`translate(${margin.left+15},${chartHeight+10})`)
+      .call(bottomAxisC);
+
+    // Cattle 2020 display
+    carbonData.forEach((d) => {
+      scatterC.append("circle")
+          .attr("cx", cattleScale(Number(d["2020_cattle_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["2020_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y20")
+          .attr("visibility", "display")
+          .style("fill", "darkblue")
+    });
+
+    // Cattle 2010 hidden
+    carbonData.forEach((d) => {
+      scatterC.append("circle")
+          .attr("cx", cattleScale(Number(d["2010_cattle_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["2010_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y10")
+          .attr("visibility", "hidden")
+          .style("fill", "darkblue")
+    });
+    // Cattle 2000 hidden
+    carbonData.forEach((d) => {
+      scatterC.append("circle")
+          .attr("cx", cattleScale(Number(d["2000_cattle_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["2000_carbon_emission_pc"])) -10)
+          .attr("r", 3)
+          .attr("class", "y00")
+          .attr("visibility", "hidden")
+          .style("fill", "darkblue")
+    });
+
+    // Cattle 1990 hidden
+    carbonData.forEach((d) => {
+      scatterC.append("circle")
+          .attr("cx", cattleScale(Number(d["1990_cattle_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["1990_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y90")
+          .attr("visibility", "hidden")
+          .style("fill", "darkblue")
+    });
+
+    // Cattle 1980 hidden
+    carbonData.forEach((d) => {
+      scatterC.append("circle")
+          .attr("cx", cattleScale(Number(d["1980_cattle_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["1980_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y80")
+          .attr("visibility", "hidden")
+          .style("fill", "darkblue")
+    });
+
+    // Cattle axis name
+    scatterC.append("text")
+            .attr("class", "scatterAxis")
+             .attr("x", margin.left + chartWidth/2 + margin.left) //-chartHeight/2 + 800
+             .attr("y", chartHeight + margin.top + 20)
+             .style("text-anchor", "middle")
+             .text("Number of Cattles PC");
+
+    scatterC.append("text")
+            .attr("class", "scatterAxis")
+            .attr("transform", "rotate(-90)")
+            .attr("x", margin.left - chartHeight/2 -20) //-chartHeight/2 + 800
+            .attr("y", -margin.top + 27)
+            .style("text-anchor", "middle")
+            .text("Carbon Emission PC");
+
+    // Auto scatter plot
+    let leftAxisA = d3.axisLeft(carbonScale)
+    let bottomAxisA = d3.axisBottom(autoScale)
+    axesA.append("g")
+    .attr("class", "yAxis")
+    .attr("transform",`translate(${margin.left+10},${margin.top-15})`)
+    .call(leftAxisA);
+    axesA.append('g')
+      .attr('class', 'xAxis')
+      .attr('transform',`translate(${margin.left+15},${chartHeight+10})`)
+      .call(bottomAxisA);
+
+    // Auto 2020 display
+    carbonData.forEach((d) => {
+      scatterA.append("circle")
+          .attr("cx", autoScale(Number(d["2020_auto_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["2020_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y20")
+          .attr("visibility", "display")
+          .style("fill", "orange")
+    });
+    // Auto 2010 display
+    carbonData.forEach((d) => {
+      scatterA.append("circle")
+          .attr("cx", autoScale(Number(d["2010_auto_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["2010_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y10")
+          .attr("visibility", "hidden")
+          .style("fill", "orange")
+    });
+    // Auto 2000 hidden
+    carbonData.forEach((d) => {
+      scatterA.append("circle")
+          .attr("cx", autoScale(Number(d["2000_auto_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["2000_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y00")
+          .attr("visibility", "hidden")
+          .style("fill", "orange")
+    });
+    // Auto 1990 display
+    carbonData.forEach((d) => {
+      scatterA.append("circle")
+          .attr("cx", autoScale(Number(d["1990_auto_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["1990_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y90")
+          .attr("visibility", "hidden")
+          .style("fill", "orange")
+    });
+    // Auto 1980 hidden
+    carbonData.forEach((d) => {
+      scatterA.append("circle")
+          .attr("cx", autoScale(Number(d["1980_auto_pc"])) + margin.left+15)
+          .attr("cy", carbonScale(Number(d["1980_carbon_emission_pc"]))-10)
+          .attr("r", 3)
+          .attr("class", "y80")
+          .attr("visibility", "hidden")
+          .style("fill", "orange")
+    });
+
+    // Auto axis name
+      scatterA.append("text")
+        .attr("class", "scatterAxis")
+        .attr("text-anchor", "end")
+        .attr("x", margin.left + chartWidth/2 + margin.left + 25)
+        .attr("y", chartHeight + margin.top + 20)
+        .text("Automobile PC");
+
+    scatterA.append("text")
+      .attr("text-anchor", "end")
+      .attr("y", -margin.top + 27)
+      .attr("x", margin.left - chartHeight/2 + 25)
+      .attr("class", "scatterAxis")
+      .attr("transform", "rotate(-90)")
+      .text("Carbon Emission PC");
+
+      // var value
+      // console.log(value)
+     // d3.selectAll("input").on("change", function change(){
+     //     var current_value = this.value;
+     // }
+
+    // Interactivity
+    d3.selectAll("input").on("change", function change() {
+      var value = this.value;
+      // console.log(value)
+
+        d3.selectAll(".y80").attr("visibility", function(d) {
+          switch (value) {
+          case "1980": return "display"; break;
+          case "1990": return "hidden"; break;
+          case "2000": return "hidden"; break;
+          case "2010": return "hidden"; break;
+          case "2020": return "hidden"; break;
+            }})
+        d3.selectAll(".y90").attr("visibility", function(d) {
+          switch (value) {
+          case "1980": return "hidden"; break;
+          case "1990": return "display"; break;
+          case "2000": return "hidden"; break;
+          case "2010": return "hidden"; break;
+          case "2020": return "hidden"; break;
+            }})
+        d3.selectAll(".y00").attr("visibility", function(d) {
+          switch (value) {
+          case "1980": return "hidden"; break;
+          case "1990": return "hidden"; break;
+          case "2000": return "display"; break;
+          case "2010": return "hidden"; break;
+          case "2020": return "hidden"; break;
+            }})
+        d3.selectAll(".y10").attr("visibility", function(d) {
+          switch (value) {
+          case "1980": return "hidden"; break;
+          case "1990": return "hidden"; break;
+          case "2000": return "hidden"; break;
+          case "2010": return "display"; break;
+          case "2020": return "hidden"; break;
+            }})
+        d3.selectAll(".y20").attr("visibility", function(d) {
+          switch (value) {
+          case "1980": return "hidden"; break;
+          case "1990": return "hidden"; break;
+          case "2000": return "hidden"; break;
+          case "2010": return "hidden"; break;
+          case "2020": return "display"; break;
+            }})
+
+        d3.selectAll("path.state").style("fill", function(d) {
+          switch (value) {
+            case "1980":
+              return colorScale(countsList['1980'][d.id]);
+              break;
+            case "1990":
+              return colorScale(countsList['1990'][d.id]);
+              break;
+            case "2000":
+              return colorScale(countsList['2000'][d.id]);
+              break;
+            case "2010":
+              return colorScale(countsList['2010'][d.id]);
+              break;
+            case "2020":
+              return colorScale(countsList['2020'][d.id]);
+              break;
+              }})
+
+    })
+
+}
+    requestData();
+</script>
+
+
+<div id = "visualization2">
+<h2 class = "center">Amount of different types of Electric Vehicles(EV) during 2016 -2021
+</h2>
+<p class = "center">Hover over dot for detail
+</p>
+<div class = "center">
+<svg  id="ev_mix" height="600" width="800" ></svg></div>
+</div>
+
+<script>
+
+  const svg2 = d3.select("svg#ev_mix");
+  const width2 = svg2.attr("width");
+  const height2 = svg2.attr("height");
+  const margin2 = {top: 10, right: 50, bottom: 50, left: 70};
+  const chartWidth = width2 - margin2.left - margin2.right;
+  const chartHeight = height2 - margin2.top - margin2.bottom;
+  let annotations = svg2.append("g").attr("id","annotations");
+  let chartArea = svg2.append("g").attr("id","points")
+                  .attr("transform",`translate(${margin2.left},${margin2.top})`);
+
+ d3.json("ev.json",d3.autoType)
+   .then((data) => {
+   console.log(data);
+
+// y axis
+    const yearScale = d3.scaleLinear().domain([2016, 2021]).range([0,chartWidth]);
+    const volumeScale = d3.scaleLinear().domain([200000, 8000000]).range([chartHeight, 0]);
+
+    let leftAxis = d3.axisLeft(volumeScale)
+
+    annotations.append("g")
+      .attr("class", "y axis")
+      .attr("transform",`translate(${margin2.left},${margin2.top})`)
+      .call(leftAxis)
+
+
+      annotations.append("text")
+          .attr("text-anchor", "middle")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -chartHeight/2)
+          .attr("y", 12)
+          .text("Number of Cars Registered");
+
+
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+    const timeParser = d3.timeParse('%Y');
+// x axis
+    min=timeParser('2016');
+    max=timeParser('2021');
+    const dateScale = d3.scaleTime().domain([min,max]).range([0,chartWidth]);
+    let bottomAxis = d3.axisBottom(dateScale)
+    let bottomGridlines = d3.axisBottom(dateScale)
+                      .tickSize(-chartHeight-10)
+                      .tickFormat("")
+    annotations.append("g")
+    .attr("class", "x axis")
+    .attr("transform",`translate(${margin2.left},${chartHeight+margin2.top+10})`)
+    .call(bottomAxis);
+
+    annotations.append("text")
+               .attr("transform", "translate(" + (chartWidth/2 + 70) + "," + (chartHeight + margin2.top + 40) + ")")
+               .style("text-anchor", "middle")
+               .text("Year");
+
+    var lineGen = d3.line()
+              .x( d => dateScale(timeParser(d['date'])) )
+              .y( d => volumeScale(d['number']) )
+
+    let gTags = chartArea.selectAll('g.line').data(data["Electric"])
+                                   .join('g')
+                                   .attr('class','line')
+                                   .attr("stroke",d => colorScale(d.type))
+                                   .attr("stroke-width", "2px");
+
+    gTags.append("path")
+            .datum(d => d.values)
+            .attr("class", "line")
+            .attr("fill", "none")
+            .attr("stroke-width", "2px")
+            .attr('d', lineGen);
+
+
+    array = ["bev", "phev", "hev", "total"]
+    let points = gTags.selectAll("circle")
+         .data (d => d.values)
+         .join('circle')
+         .attr("cx", d => dateScale(timeParser(d['date'])))
+         .attr("cy", d => volumeScale(d['number']) )
+         .attr("r", "4px")
+         .style("fill", d => colorScale(d.type))
+         .style("stroke", "none");
+
+         // legend
+              gTags.selectAll("dots")
+                .data(d => data['Electric'])
+                .join("circle")
+                  .attr("cx", 20)
+                  .attr("cy", function(d,i){ return 100 + i*25})
+                  .attr("r", 5)
+                  .style("fill", d => colorScale(d.type))
+                  .style("stroke", "none");
+
+            // const legendDot = ["Total", "Hybrid electric vehicles(HEV)", "Electric Vehicles(EV)", "Plug-in Hybrid Vehicle (PHEV)"]
+
+
+            const legendDot = ["Electric Vehicles(EV)", "Plug-in Hybrid Vehicle (PHEV)", "Hybrid electric vehicles(HEV)", "Total"]
+              // Add one dot in the legend for each name.
+
+            // console.log(data['Electric'])
+              gTags.selectAll("labels")
+                .data(d =>data['Electric'])
+                  .join("text")
+                  .attr("x", 30)
+                  .attr("y", function(d,i){ return 100 + i*25})
+                  .style("fill", d => colorScale(d.type))
+                  // .style("fill", function(d,i){ colorScale(d[i])})
+                  .style("stroke", "none")
+                  .text(function(d,i){ return legendDot[i]})
+                //  .text(d => d.type)
+                  .style("alignment-baseline", "middle");
+
+    const mouseover = svg2.append("g").attr("class","mouseover")
+                         .attr("transform",`translate(${margin2.left+15},${margin2.top+15})`);
+
+    function stringLen(str) {
+      const dummytext = mouseover.append("text").attr("class","legendtext").attr("visibility","hidden");
+      dummytext.text(str)
+      let len = dummytext.node().getComputedTextLength()
+      dummytext.remove()
+      return len;
+    }
+
+    const frame = mouseover.append("rect").attr("class","frame")
+                             .attr("x", 0).attr("y", 0)
+                             .attr("rx", 5).attr("ry", 5)
+                             .attr("height", 130);
+      const textbox = mouseover.append("g").attr("transform","translate(10,10)");
+      const format = d3.format(',d');
+
+    function updateMouseover(d) {
+      textbox.html('');
+
+      let year = `Year: ${d['date']}`;
+      let type = `Type: ${d['type']}`;
+      let num = `Number of Registered Vehicles: ${d['number']}`;
+
+
+      let maxWidth = Math.max(stringLen(year), stringLen(type), stringLen(num))
+      frame.attr("width", maxWidth+20);
+      frame.attr("x", dateScale(d.date))
+      frame.attr("y", volumeScale(d.number))
+
+      textbox.append("text").text(year)
+             .attr("x", 0).attr("y", 10);
+      textbox.append("text").text(type)
+             .attr("x", 0).attr("y", 30);
+       textbox.append("text").text(num)
+            .attr("x", 0).attr("y", 50);
+    }
+
+        points.on("mouseover", function(d) {
+          d3.select(this).attr("r",12)
+          mouseover.attr("visibility","");
+          updateMouseover( d3.select(this).datum() )
+             });
+
+        points.on("mouseout", function() {
+          d3.select(this).attr("r",5)
+               mouseover.attr("visibility","hidden");
+             });
+
+       });
+   </script>
+
+
+</body>
+
+</html>

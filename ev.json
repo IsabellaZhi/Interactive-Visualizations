@@ -1,0 +1,148 @@
+{
+
+    "Electric": [
+      {
+        "type": "EV",
+        "values": [
+          {
+            "date": 2016,
+            "number": 280300,
+            "type": "EV"
+          },
+          {
+            "date": 2017,
+            "number": 377100,
+            "type": "EV"
+
+          },
+          {
+            "date": 2018,
+            "number": 572600,
+            "type": "EV"
+          },
+          {
+            "date": 2019,
+            "number": 783600,
+            "type": "EV"
+          },
+          {
+            "date": 2020,
+            "number": 1018900,
+            "type": "EV"
+          },
+          {
+            "date": 2021,
+            "number": 1454400,
+            "type": "EV"
+          }
+        ]
+    },
+    {
+        "type": "PHEV",
+        "values": [
+          {
+            "date": 2016,
+            "number": 254000,
+            "type": "PHEV"
+          },
+          {
+            "date": 2017,
+            "number": 344600,
+            "type": "PHEV"
+          },
+          {
+            "date": 2018,
+            "number": 461300,
+            "type": "PHEV"
+          },
+          {
+            "date": 2019,
+            "number": 536600,
+            "type": "PHEV"
+          },
+          {
+            "date": 2020,
+            "number": 594400,
+            "type": "PHEV"
+          },
+          {
+            "date": 2021,
+            "number": 786800,
+            "type": "PHEV"
+          }
+        ]
+    },
+
+    {
+        "type": "HEV",
+        "values": [
+          {
+            "date": 2016,
+            "number": 3741600,
+            "type": "HEV"
+          },
+          {
+            "date": 2017,
+            "number": 4036000,
+            "type": "HEV"
+          },
+          {
+            "date": 2018,
+            "number": 4242400,
+            "type": "HEV"
+          },
+          {
+            "date": 2019,
+            "number": 4512900,
+            "type": "HEV"
+          },
+          {
+            "date": 2020,
+            "number": 4813700,
+            "type": "HEV"
+          },
+          {
+            "date": 2021,
+            "number": 5491800,
+            "type": "HEV"
+          }
+        ]
+    },
+
+    {
+        "type": "Total",
+        "values": [
+          {
+            "date": 2016,
+            "number": 4275900,
+            "type": "Total"
+          },
+          {
+            "date": 2017,
+            "number": 4757700,
+            "type": "Total"
+          },
+          {
+            "date": 2018,
+            "number": 5276300,
+            "type": "Total"
+          },
+          {
+            "date": 2019,
+            "number": 5833100,
+            "type": "Total"
+          },
+          {
+            "date": 2020,
+            "number": 6427000,
+            "type": "Total"
+          },
+          {
+            "date": 2021,
+            "number": 7733000,
+            "type": "Total"
+          }
+        ]
+    }
+  ]
+}
